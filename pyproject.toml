@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "topf"
+version = "0.0.1"
+authors = [
+  { name="Vincent P. Grande", email="grande@cs.rwth-aachen.de" },
+]
+description = "TOpological Point Features: Node-Level Topological Representation Learning on Point Clouds"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  'numpy >= 1.22.0',
+  'gudhi >= 3.8.0',
+  'matplotlib >= 3.9.0',
+  'scikit-learn >= 1.5.0',
+  'scipy >= 1.13.0',
+  'pandas >= 2.2.2',
+  'plotly >= 5.22.0',
+  'nbformat >= 5.10.0',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/vincent-grande/topf"
+
+[tool.hatch.build]
+exclude = ["examples"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov --cov-report html --cov-report term-missing --cov-fail-under 75"
+
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src"]

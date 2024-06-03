@@ -1,0 +1,5 @@
+/examples/obsolete
+/examples/ProteinFiles
+dist
+.venv
+.topf
