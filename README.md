@@ -9,7 +9,7 @@ Although being a python package, TOPF requires an installation [Julia](https://j
 
 ## Usage
 
-Two Jupyter-Notebooks with example usage of TOPF with [basic examples](https://github.com/vincent-grande/topf/examples/topf_basic_examples.ipynb) and [3d examples](https://github.com/vincent-grande/topf/examples/topf_examples3d.ipynb) can be found in the examples folder.
+Two Jupyter-Notebooks with example usage of TOPF with [basic examples](https://nbviewer.org/github/vincent-grande/topf/blob/main/examples/topf_basic_examples.ipynb) and [3d examples](https://nbviewer.org/github/vincent-grande/topf/blob/main/examples/topf_examples3d.ipynb) can be found in the examples folder.
 
 ## Citation
 
