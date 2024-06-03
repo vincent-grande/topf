@@ -1,0 +1,71 @@
+# https://docs.pypi.org/trusted-publishers/using-a-publisher/
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# https://stackoverflow.com/questions/62968271/python-automatic-versioning-not-happening-while-running-in-github-actions
+
+name: Build Python package
+run-name: ${{ github.actor }} is building the Python package
+
+# Workflow will when a new release in the GitHub web UI.
+# It can also be triggered manually: https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow#running-a-workflow
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    name: Build Python package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Get the latest commit with a semver tag
+      # This allows re-running the build job even after further unclean commits were made:
+      # builds will always be for at least a tagged version, allowing them to be
+      # pushed to PyPI.
+      # Unfortunately, `semver_only: true` excludes tags with suffixes, like v1.0.0-rc.3,
+      # so it would prevent from building release candidate versions.
+      # By setting to `false`, we make the assumption that tags are only used on
+      # commits which correspond to releases.
+      - uses: actions-ecosystem/action-get-latest-tag@v1
+        id: get-latest-tag
+        with:
+          semver_only: false
+
+      # https://stackoverflow.com/a/73904531
+      - name: Checkout latest tagged release
+        run: |
+          echo "Restoring state to the commit tagged '${{ steps.get-latest-tag.outputs.tag }}'"
+          git checkout "tags/${{ steps.get-latest-tag.outputs.tag }}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install pypa/build
+        run: >-
+          python3 -m
+          pip install
+          build
+          --user
+
+      - name: Build a binary wheel and a source tarball
+        run: >-
+          python3 -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-build
+          path: dist/
+          
+      - name: Display structure of created artifacts
+        run: ls -R

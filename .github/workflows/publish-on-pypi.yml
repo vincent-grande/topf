@@ -1,0 +1,32 @@
+# https://docs.pypi.org/trusted-publishers/using-a-publisher/
+# https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+# https://github.com/marketplace/actions/pypi-publish#non-goals
+# https://github.com/dawidd6/action-download-artifact
+
+name: Publish release on PyPI
+run-name: ${{ github.actor }} is publishing the latest release on PyPI
+# Run job by triggering it manually with the web UI: https://docs.github.com/en/actions/using-workflows/manually-running-a-workflow#running-a-workflow
+on: workflow_dispatch
+jobs:
+  pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      # NB: The offical action does not (yet?) allow downloading across workflows: https://github.com/actions/download-artifact/issues/172
+      - uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: build.yml
+          workflow_conclusion: success
+          branch: main
+          name: release-build
+          path: dist/
+          if_no_artifact_found: fail
+
+      - name: Display structure of downloaded files
+        run: ls -R
+
+      - name: Publish package distributions PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
