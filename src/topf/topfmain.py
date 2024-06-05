@@ -62,9 +62,90 @@ def topf(
     fixed_num_features="Off",
     return_dict=False,
 ):
+    
     """
-        Returns cluster_labels and TOPFeatures
+        Returns Topological point features of a point cloud.
+
+        Parameters 
+        ----------
+        base_points : np.array
+            The points to be analyzed.
+        complex_type : str, optional
+            The type of the complex to be used. Can be 'alpha' or 'rips'. If 'auto', the complex is chosen automatically. The default is 'auto'.
+        thresh_distance : float, optional
+            The distance threshold for the complex. The default is 0 which disables the threshold.
+        max_hom_dim : int, optional
+            The maximum homological dimension to be computed. The default is 1.
+        max_rel_quot : float, optional
+            The maximum relative quotient of the life times of the homology classes to be picked. The default is 0.1.
+        interpolation_coefficient : float, optional
+            The interpolation coefficient which determines the simplicial complex for the harmonic projection. The default is 0.3.
+        simplex_threshs : tuple, optional
+            The threshold for the associated values of the simplices in dimension 1 & 2 to be drawn when draw_scaled_vecs = True. The default is (0.1, 0.1).
+        n_clusters : int, optional
+            The number of clusters to be computed. If 'auto', the number of clusters is chosen automatically. The default is 'auto'.
+        draw_reps : bool, optional
+            Whether to draw the representatives. The default is False.
+        draw_scaled_vecs : bool, optional
+            Whether to draw the postprocessed harmonic representatives. The default is False.
+        draw_final_clustering : bool, optional
+            Whether to draw the final clustering. The default is False.
+        draw_signatures : bool, optional
+            Whether to plot the topopological feature vectors in 3d feature space. The default is False.
+        rep_chance : float, optional
+            The chance of drawing a representative. The default is 1.
+        damping : float, optional
+            Factor that influences feature selection. Increasing the damping coefficient will introduce a bias towards selecting more features. The default is 0.
+        eigenvector_tresholding : bool, optional
+            Whether to threshold the eigenvector components. The default is True.
+        eigenvector_threshold : float, optional
+            The threshold for the eigenvector components. The default is 0.07.
+        clustering_method : str, optional
+            The clustering method to be used. Can be 'kmeans', 'spectral', 'agglomerative'. The default is 'spectral'.
+        exponential_interpolation : bool, optional
+            Whether to use exponential interpolation opposed to linear interpolation for computing the simplicial complexes. The default is True.
+        max_total_quot : float, optional
+            The maximum total quotient of the life times of the homology classes to be picked. The default is 0.1.
+        quotient_life_times : bool, optional
+            Whether to use the quotient of the death and birth times of the homology classes as their relevance score opposed to the difference. The default is False.
+        use_eff_resistance : bool, optional
+            Whether to use effective resistance for the harmonic projection. The default is False. Computation intensive.
+        draw_signature_heatmaps : str, optional
+            Whether to draw the heatmaps of the signatures. Can be 'Off', 'One plot' to combine them in one plot only showing the most significant features, 'Separate plots' to draw a heatmap for each of the features individually. The default is 'Off'.
+        aggregation_mode : str, optional
+            The aggregation mode for the short signatures. Can be 'mean', 'max', 'min', 'sum'. The default is 'mean'.
+        eff_resistance_exponent : int, optional
+            The exponent for the weight computation. The default is 2.
+        verbose : bool, optional
+            Whether to print the progress. The default is False. Very verbose.
+        max_reps : int, optional
+            The maximum number of representatives to be picked. The default is 100.
+        dim0min_pers_ratio : int, optional
+            The ratio of the minimum persistence of dimension 0 homology classes to be picked. The default is 5.
+        thresholding_type : str, optional
+            The type of thresholding to be used for the eigenvector components. Can be 'linear', 'hard'. The default is 'linear'.
+        add_convex_hull : bool, optional
+            Whether to add the convex hull of the points to the points. The default is False.
+        only_dims : list, optional
+            The dimensions to be considered. The default is [0, 1, 2, 3].
+        permit_inf_homology_classes : bool, optional
+            Whether to consider homology classes without a death time (due to thresholding). The default is True and their death time is set to the picked threshold.
+        sparsify_input : str, optional
+            The sparsification method to be used. Can be 'landmark', 'random', 'mixed', 'off', 'auto'. The default is 'auto'.
+        num_sparse_points : int, optional
+            The number of points to be picked after sparsification. The default is 1000. Gets overwritten by sparsify_input = 'auto'.
+        fixed_num_features : list/str, optional
+            The number of features to be picked for each dimension in the form of a list. The default is 'Off'.
+        return_dict : bool, optional
+            Whether to return the dictionary with labels and additional information. The default is False.
+
+        Returns
+        -------
+        topological features : np.array
+            The topological features.
+        (Optional if return_dict = True) output_dict: dict
     """
+    base_points = noisify_input_points(np.array(base_points))
     ambient_dim = base_points.shape[1]
     if max_hom_dim >= ambient_dim:
         warnings.warn(
@@ -72,7 +153,6 @@ def topf(
             category=RuntimeWarning,
         )
         max_hom_dim = ambient_dim - 1
-    base_points = noisify_input_points(np.array(base_points))
     num_input_points = base_points.shape[0]
     first_stage_sparsifier = num_input_points
     original_points = np.copy(base_points)
