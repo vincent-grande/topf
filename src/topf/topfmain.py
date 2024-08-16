@@ -62,7 +62,7 @@ def topf(
     fixed_num_features="Off",
     return_dict=False,
 ):
-    
+
     """
         Returns Topological point features of a point cloud.
 
@@ -101,7 +101,7 @@ def topf(
         eigenvector_threshold : float, optional
             The threshold for the eigenvector components. The default is 0.07.
         clustering_method : str, optional
-            The clustering method to be used. Can be 'kmeans', 'spectral', 'agglomerative'. The default is 'spectral'.
+            The clustering method to be used. Can be 'kmeans', 'spectral' or 'agglomerative'. The default is 'auto'.
         exponential_interpolation : bool, optional
             Whether to use exponential interpolation opposed to linear interpolation for computing the simplicial complexes. The default is True.
         max_total_quot : float, optional
@@ -145,6 +145,44 @@ def topf(
             The topological features.
         (Optional if return_dict = True) output_dict: dict
     """
+    if not isinstance(interpolation_coefficient, float):
+        raise ValueError("interpolation_coefficient must be a float.")
+    if interpolation_coefficient <= 0 or interpolation_coefficient >= 1:
+        raise ValueError("interpolation_coefficient must be in (0,1).")
+    if not isinstance(n_clusters, int) and n_clusters != "auto":
+        raise ValueError("n_clusters must be an integer or 'auto'.")
+    if clustering_method not in ["kmeans", "spectral", "agglomerative"]:
+        raise ValueError(
+            "clustering_method must be 'kmeans', 'spectral', or 'agglomerative'."
+        )
+    if draw_signature_heatmaps not in ["Off", "One plot", "Separate plots"]:
+        raise ValueError(
+            "draw_signature_heatmaps must be 'Off', 'One plot', or 'Separate plots'."
+        )
+    if not isinstance(draw_reps, bool):
+        raise ValueError("draw_reps must be a boolean.")
+    if not isinstance(draw_scaled_vecs, bool):
+        raise ValueError("draw_scaled_vecs must be a boolean.")
+    if not isinstance(draw_final_clustering, bool):
+        raise ValueError("draw_final_clustering must be a boolean.")
+    if not isinstance(draw_signatures, bool):
+        raise ValueError("draw_signatures must be a boolean.")
+    if not isinstance(eigenvector_tresholding, bool):
+        raise ValueError("eigenvector_tresholding must be a boolean.")
+    if not isinstance(quotient_life_times, bool):
+        raise ValueError("quotient_life_times must be a boolean.")
+    if sparsify_input not in ["landmark", "random", "mixed", "off", "auto"]:
+        raise ValueError(
+            "sparsify_input must be 'landmark', 'random', 'mixed', 'off', or 'auto'."
+        )
+    if not isinstance(return_dict, bool):
+        raise ValueError("return_dict must be a boolean.")
+    if not isinstance(verbose, bool):
+        raise ValueError("verbose must be a boolean.")
+    if not isinstance(fixed_num_features, list) and fixed_num_features != "Off":
+        raise ValueError("fixed_num_features must be a list or 'Off'.")
+    if complex_type not in ["alpha", "rips", "auto"]:
+        raise ValueError("complex_type must be 'alpha', 'rips', or 'auto.")
     base_points = noisify_input_points(np.array(base_points))
     ambient_dim = base_points.shape[1]
     if max_hom_dim >= ambient_dim:
@@ -333,7 +371,7 @@ def topf(
             multi_inds,
             max_hom_dim,
             simplex_threshs,
-            max_num_simplices_drawn = max_num_simplices_drawn
+            max_num_simplices_drawn=max_num_simplices_drawn,
         )
     if verbose:
         print(
@@ -360,14 +398,15 @@ def topf(
         short_flat_signatures = neigh.predict(original_points)
         if verbose:
             print("KNeighborsRegressor done")
-    labels = cluster_points(
-        short_flat_signatures,
-        original_points,
-        n_clusters=n_clusters,
-        show_plots=draw_final_clustering,
-        clustering_method=clustering_method,
-        verbose=verbose,
-    )
+    if draw_final_clustering or return_dict:
+        labels = cluster_points(
+            short_flat_signatures,
+            original_points,
+            n_clusters=n_clusters,
+            show_plots=draw_final_clustering,
+            clustering_method=clustering_method,
+            verbose=verbose,
+        )
     if draw_signatures:
         plot_top_features(short_flat_signatures, labels)
     if (
@@ -384,11 +423,6 @@ def topf(
             plot_signatures_in_one(original_points, short_flat_signatures_s)
         else:
             plot_signatures(original_points, short_flat_signatures_s)
-    elif draw_signature_heatmaps != "Off" and draw_signature_heatmaps != False:
-        warnings.warn(
-            "draw_signature_heatmaps parameter should be in range ['Off', 'One plot', Separate plots']. No heatmaps plotted.",
-            category=RuntimeWarning,
-        )
     if return_dict:
         birth_times = []
         death_times = []
@@ -807,15 +841,17 @@ def cluster_points(
     verbose=False,
 ):
     """
-        Clusters the points using TOPF signatures, clusters on at most 5000 points at the same time.
+        Clusters the points using TOPF signatures, clusters on at most 3000 points at the same time.
     """
-    if len(topfeatures) > 5000:
+    if len(topfeatures) > 3000:
         if verbose:
             print(
-                "Sparsifying from " + str(len(topfeatures)) + " to 5000 top. features."
+                "Sparsifying from "
+                + str(len(topfeatures))
+                + " to 3000 top. features for clustering. If you want to cluster on all top. features, run clustering manually on the returned top. features."
             )
     base_points_s, sparse_signatures = random_sampling_two_lists(
-        base_points, topfeatures, 5000
+        base_points, topfeatures, 3000
     )
     if clustering_method == "kmeans":
         clustering = sklearn.cluster.KMeans(n_clusters, n_init="auto").fit(
@@ -1007,7 +1043,7 @@ def plot_vecs(
                 simplex = multi_all_simplices[0][i][0][index]
                 starting_point = simplex[0]
                 starting_point_coord = multi_multi_points[0][i][starting_point]
-                cur_colour = matplotlib.colors.to_hex(my_colour_maps(i+1)(i))
+                cur_colour = matplotlib.colors.to_hex(my_colour_maps(i + 1)(i))
                 xline = [starting_point_coord[0]]
                 yline = [starting_point_coord[1]]
                 if ambient_dim >= 3:
@@ -1035,7 +1071,9 @@ def plot_vecs(
         multi_scaled_vecs[1][i] = np.abs(multi_scaled_vecs[1][i]) / np.max(
             np.abs(multi_scaled_vecs[1][i])
         )
-        cur_chance = max_num_simplices_drawn / np.sum(multi_scaled_vecs[1][i] > threshold[0])
+        cur_chance = max_num_simplices_drawn / np.sum(
+            multi_scaled_vecs[1][i] > threshold[0]
+        )
         if cur_chance < 1 and not already_printed:
             already_printed = True
             print(
@@ -1085,7 +1123,9 @@ def plot_vecs(
                     )
     if max_hom_dim == 2:
         for i in range(len(multi_inds[2])):
-            cur_chance = max_num_simplices_drawn / np.sum(multi_scaled_vecs[2][i] > threshold[1])
+            cur_chance = max_num_simplices_drawn / np.sum(
+                multi_scaled_vecs[2][i] > threshold[1]
+            )
             if cur_chance < 1 and not already_printed:
                 already_printed = True
                 print(
@@ -1121,7 +1161,10 @@ def plot_vecs(
                                     y=yline,
                                     z=zline,
                                     mode="lines",
-                                    line=dict(color=cur_colour, width=1 + multi_scaled_vecs[2][i][index] * 10),
+                                    line=dict(
+                                        color=cur_colour,
+                                        width=1 + multi_scaled_vecs[2][i][index] * 10,
+                                    ),
                                 )
                             )
                         else:
@@ -1130,7 +1173,10 @@ def plot_vecs(
                                     x=xline,
                                     y=yline,
                                     mode="lines",
-                                    line=dict(color=cur_colour, width=1 + multi_scaled_vecs[2][i][index] * 10),
+                                    line=dict(
+                                        color=cur_colour,
+                                        width=1 + multi_scaled_vecs[2][i][index] * 10,
+                                    ),
                                 )
                             )
     figsimplices.update_xaxes(visible=False)
@@ -2141,5 +2187,5 @@ def setup_julia():
             )
 
 
-#if __package__ is not None:
+# if __package__ is not None:
 #    setup_julia()
