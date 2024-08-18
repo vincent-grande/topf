@@ -13,6 +13,7 @@ import matplotlib.colors
 import scipy.sparse
 import scipy.spatial
 import scipy.linalg
+from scipy.optimize import LinearConstraint, milp
 from sklearn.neighbors import KNeighborsRegressor
 import sklearn.cluster
 import sklearn.metrics
@@ -314,6 +315,7 @@ def topf(
             all_num_k_simplices_in_p,
             multi_points,
             multi_simplices,
+            multi_inds,
         ) = compute_projection_from_reps(
             base_points,
             cur_d,
@@ -358,8 +360,27 @@ def topf(
             chance=rep_chance,
         )
         if verbose:
-            print("Plotting representatives done. Plotting eigenvector components...")
-    if draw_scaled_vecs:
+            print("Plotting representatives done.")
+    if verbose:
+        print("Generating long point signatures...")
+    long_point_signatures = generate_long_point_signatures(
+        base_points, multi_inds, multi_multi_simplices, multi_scaled_vecs
+    )
+    if verbose:
+        print("Long point signatures done. Generating short signatures...")
+    short_flat_signatures = generate_short_point_signatures(
+        long_point_signatures, aggregation_mode
+    )
+    if verbose:
+        print("Short signatures done. Clustering...")
+    short_flat_signatures = short_flat_signatures[:num_old_base_points]
+    base_points = base_points[:num_old_base_points]
+    if short_flat_signatures.shape[1] == 0:
+        warnings.warn(
+            "No topological features detected. Returning empty feature vectors.",
+            category=RuntimeWarning,
+        )
+    if draw_scaled_vecs and short_flat_signatures.shape[1] > 0:
         if verbose:
             print(multi_scaled_vecs_save)
         plot_vecs(
@@ -373,22 +394,10 @@ def topf(
             simplex_threshs,
             max_num_simplices_drawn=max_num_simplices_drawn,
         )
-    if verbose:
-        print(
-            "Plotting eigenvector components done. Generating long point signatures..."
-        )
-    long_point_signatures = generate_long_point_signatures(
-        base_points, multi_inds, multi_multi_simplices, multi_scaled_vecs
-    )
-    if verbose:
-        print("Long point signatures done. Generating short signatures...")
-    short_flat_signatures = generate_short_point_signatures(
-        long_point_signatures, aggregation_mode
-    )
-    if verbose:
-        print("Short signatures done. Clustering...")
-    short_flat_signatures = short_flat_signatures[:num_old_base_points]
-    base_points = base_points[:num_old_base_points]
+        if verbose:
+            print(
+                "Plotting eigenvector components done!"
+            )
     if sparsify_input != "off":
         if verbose:
             print("starting KNeighborsRegressor")
@@ -407,11 +416,12 @@ def topf(
             clustering_method=clustering_method,
             verbose=verbose,
         )
-    if draw_signatures:
+    if draw_signatures and short_flat_signatures.shape[1] > 0:
         plot_top_features(short_flat_signatures, labels)
     if (
-        draw_signature_heatmaps == "One plot"
-        or draw_signature_heatmaps == "Separate plots"
+        (draw_signature_heatmaps == "One plot"
+        or draw_signature_heatmaps == "Separate plots")
+        and short_flat_signatures.shape[1] > 0
     ):
         if len(short_flat_signatures) > 5000:
             original_points, short_flat_signatures_s = random_sampling_two_lists(
@@ -841,17 +851,23 @@ def cluster_points(
     verbose=False,
 ):
     """
-        Clusters the points using TOPF signatures, clusters on at most 3000 points at the same time.
+        Clusters the points using TOPF signatures, clusters on at most 5000 points at the same time.
     """
-    if len(topfeatures) > 3000:
+    if topfeatures.shape[1] == 0:
+        warnings.warn(
+            "No topological features detected. No clustering plotted or performed.",
+            category=RuntimeWarning,
+        )
+        return np.zeros(base_points.shape[0])
+    if len(topfeatures) > 5000:
         if verbose:
             print(
                 "Sparsifying from "
                 + str(len(topfeatures))
-                + " to 3000 top. features for clustering. If you want to cluster on all top. features, run clustering manually on the returned top. features."
+                + " to 5000 top. features for clustering. If you want to cluster on all top. features, run clustering manually on the returned top. features."
             )
     base_points_s, sparse_signatures = random_sampling_two_lists(
-        base_points, topfeatures, 3000
+        base_points, topfeatures, 5000
     )
     if clustering_method == "kmeans":
         clustering = sklearn.cluster.KMeans(n_clusters, n_init="auto").fit(
@@ -1191,7 +1207,6 @@ def plot_vecs(
     )
     figsimplices.show()
 
-
 def draw_representatives(
     base_points,
     max_hom_dim,
@@ -1423,45 +1438,83 @@ def compute_projection_from_reps(
             if verbose:
                 print(np.sum(char_vector))
             vec = char_vector
+            success = True
         else:
-            if verbose:
-                print(boundary_operators)
-            if use_eff_resistance:
-                vec = compute_weighted_harmonic_projection_lower_res(
-                    Bkm=boundary_operators[cur_d - 1],
-                    Bk=boundary_operators[cur_d],
-                    vec=char_vector,
-                    exponent=eff_resistance_exponent,
-                )
-            else:
-                if len(boundary_operators) < cur_d + 2:
-                    boundary_operators.append(
-                        np.zeros((num_k_simplices_in_p[cur_d], 1))
+            success = is_cycle(char_vector, boundary_operators[cur_d -1])
+            if not success:
+                if verbose:
+                    print("Char vector is not a cycle, attempting to fix.")
+                char_vector, success = fix_char_vector(char_vector, boundary_operators[cur_d -1])
+            if success:
+                if use_eff_resistance:
+                    vec = compute_weighted_harmonic_projection_lower_res(
+                        Bkm=boundary_operators[cur_d - 1],
+                        Bk=boundary_operators[cur_d],
+                        vec=char_vector,
+                        exponent=eff_resistance_exponent,
                     )
-                    if verbose:
-                        print("We are at cur_d = " + str(cur_d))
-                        print(
-                            "length boundary operator:" + str(len(boundary_operators))
+                else:
+                    if len(boundary_operators) < cur_d + 2:
+                        boundary_operators.append(
+                            np.zeros((num_k_simplices_in_p[cur_d], 1))
                         )
-                vec = compute_weighted_harmonic_projection_num_tris(
-                    Bkm=boundary_operators[cur_d - 1],
-                    Bk=boundary_operators[cur_d],
-                    vec=char_vector,
-                    exponent=weight_exponent,
-                )
-        eigen_vecs.append(vec)
-        scaled_vecs.append(np.abs(vec) / np.max(np.abs(vec) + 1e-13))
-        all_num_k_simplices_in_p.append(num_k_simplices_in_p)
-        multi_points.append(cur_points)
-        multi_simplices.append(simplices)
+                        if verbose:
+                            print("We are at cur_d = " + str(cur_d))
+                            print(
+                                "length boundary operator:" + str(len(boundary_operators))
+                            )
+                    vec = compute_weighted_harmonic_projection_num_tris(
+                        Bkm=boundary_operators[cur_d - 1],
+                        Bk=boundary_operators[cur_d],
+                        vec=char_vector,
+                        exponent=weight_exponent,
+                    )
+        if success:
+            eigen_vecs.append(vec)
+            scaled_vecs.append(np.abs(vec) / np.max(np.abs(vec) + 1e-13))
+            all_num_k_simplices_in_p.append(num_k_simplices_in_p)
+            multi_points.append(cur_points)
+            multi_simplices.append(simplices)
+        else:
+            warnings.warn(
+                        "Topological feature with life_times "+str(multi_life_times[cur_d][cur_index])+" could not be lifted to real coefficients. Skipping this representative.",
+                        category=RuntimeWarning,
+                    )
+            if verbose:
+                print("Char vector could not be fixed.")
+            del(multi_inds[cur_d][i])
     return (
         eigen_vecs,
         scaled_vecs,
         all_num_k_simplices_in_p,
         multi_points,
         multi_simplices,
+        multi_inds,
     )
 
+def fix_char_vector(char_vector, Bkm):
+    """
+    Fixes the char_vector to be in the kernel of the matrix Bkm.
+    """
+    gradient_generator = Bkm @ char_vector
+    constraints = LinearConstraint(Bkm, gradient_generator // 3, gradient_generator // 3)
+    objective = np.zeros((len(char_vector))) # Any solution will do solution
+    integrality = np.ones((len(char_vector))) # enforce integrality for all variables
+    bounds = scipy.optimize.Bounds() # default bounds are (-inf, inf)
+    milp_return = milp(
+        objective,
+        bounds = bounds, #if not specified, only positive values are allowed
+        integrality=integrality, 
+        constraints=constraints,
+    )
+    if not milp_return["success"]:
+        return char_vector, False
+    else:
+        solution = milp_return["x"]
+        fixed_char_vector = char_vector - 3 * solution
+        if (Bkm@fixed_char_vector).any():
+            print("Error: Fixed char vector is not in the kernel of the matrix.")
+        return fixed_char_vector, True
 
 def construct_simplices(base_points, length, complex_type="alpha", maxdim=2):
     """
@@ -1496,6 +1549,12 @@ def construct_simplices(base_points, length, complex_type="alpha", maxdim=2):
         cur_points = base_points
     return boundary_operators, simplices, simplexdict, num_k_simplices_in_p, cur_points
 
+def is_cycle(char_vector, boundary_operator):
+    """
+    Checks whether a char_vector is a cycle in R-coefficents, i.e. whether char_vector is in the kernel of the matrix boundary_operator.
+    """
+    boundary = boundary_operator@char_vector
+    return not boundary.any()
 
 def extract_reps(
     complex_type,

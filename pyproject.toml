@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "topf"
-version = "1.0.1"
+version = "1.0.2"
 authors = [
   { name="Vincent P. Grande", email="grande@cs.rwth-aachen.de" },
 ]
