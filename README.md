@@ -2,7 +2,7 @@
 
 This is the python package for topological point features (TOPF), enabling the construction of point-level features in point clouds stemming from algebraic topology and differential geometry as described in [Node-Level Topological Representation Learning on Point Clouds](https://arxiv.org/abs/2406.02300). 🪴
 
-![Example of TOPF on three point clouds](https://github.com/vincent-grande/topf/blob/main/examples/teaserfigure.png)
+![Example of TOPF on three point clouds](https://github.com/vincent-grande/topf/blob/main/examples/teaserfigure.png?raw=True)
 
 ## Installation
 
