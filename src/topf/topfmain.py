@@ -1431,7 +1431,7 @@ def compute_projection_from_reps(
         for rep in multi_reps[cur_d][i]:
             simplex = rep[0]
             value = rep[1]
-            simplex_key = str((list(np.flip(simplex))))
+            simplex_key = str([int(i) for i in list(np.flip(simplex))])
             if simplex_key in simplexdict[cur_d]:
                 char_vector[simplexdict[cur_d][simplex_key]] = (value + 1 % 3) - 1
         if cur_d == 0:
