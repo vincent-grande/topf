@@ -1364,7 +1364,7 @@ def compute_projection_from_reps(
     exponential_interpolation,
     use_eff_resistance,
     eff_resistance_exponent,
-    verbose=False,
+    verbose=False
 ):
     """
         Computes projection of homology representatives to harmonic space.
@@ -1374,6 +1374,8 @@ def compute_projection_from_reps(
     all_num_k_simplices_in_p = []
     multi_points = []
     multi_simplices = []
+    cur_points = None
+    existing_simplex_tree = None
     for i in range(len(multi_inds[cur_d])):
         cur_index = multi_inds[cur_d][i]
         if (
@@ -1411,11 +1413,14 @@ def compute_projection_from_reps(
             simplexdict,
             num_k_simplices_in_p,
             cur_points,
+            existing_simplex_tree
         ) = construct_simplices(
             base_points,
             length=max_edge_length,
             complex_type=complex_type,
             maxdim=cur_d + 1,
+            existing_simplex_tree=existing_simplex_tree,
+            cur_points = cur_points
         )
         eigen_vecs = []
         if verbose:
@@ -1516,24 +1521,31 @@ def fix_char_vector(char_vector, Bkm):
             print("Error: Fixed char vector is not in the kernel of the matrix.")
         return fixed_char_vector, True
 
-def construct_simplices(base_points, length, complex_type="alpha", maxdim=2):
+def construct_simplices(base_points, length, complex_type="alpha", maxdim=2, existing_simplex_tree=None, cur_points = None):
     """
     Constructs the simplices of a simplicial complex from a set of points and a maximum edge length. Returns Boundary operators and useful information on simplices.
     """
     max_edge_length_barcodes = length
+    cur_points = base_points
     if complex_type == "alpha":
-        test_komplex = gd.AlphaComplex(points=base_points, precision="exact")
-        rips_simplex_tree_sample = test_komplex.create_simplex_tree(
-            max_alpha_square=max_edge_length_barcodes ** 2
-        )
+        if existing_simplex_tree is None:
+            test_komplex = gd.AlphaComplex(points=base_points)
+            existing_simplex_tree = test_komplex.create_simplex_tree(
+            )
+            cur_points = np.array(
+            [test_komplex.get_point(i) for i in range(len(base_points))]
+            )
+        simplicial_tree = existing_simplex_tree.copy()
+        simplicial_tree.prune_above_filtration(max_edge_length_barcodes ** 2)
     elif complex_type == "rips":
         test_komplex = gd.RipsComplex(
             points=base_points, max_edge_length=max_edge_length_barcodes
         )
-        rips_simplex_tree_sample = test_komplex.create_simplex_tree(
+        existing_simplex_tree = test_komplex.create_simplex_tree(
             max_dimension=maxdim
         )
-    simplicial_tree = rips_simplex_tree_sample
+        simplicial_tree = existing_simplex_tree.copy()
+        cur_points = base_points
     simplices = get_simplices(simplicial_tree)
     num_k_simplices_in_p, simplexdict = build_simplex_dict(
         simplicial_tree=simplicial_tree, simplices=simplices
@@ -1541,13 +1553,7 @@ def construct_simplices(base_points, length, complex_type="alpha", maxdim=2):
     boundary_operators = extract_boundary_operators(
         simplices, simplexdict, num_k_simplices_in_p
     )
-    if complex_type == "alpha":
-        cur_points = np.array(
-            [test_komplex.get_point(i) for i in range(len(base_points))]
-        )
-    else:
-        cur_points = base_points
-    return boundary_operators, simplices, simplexdict, num_k_simplices_in_p, cur_points
+    return boundary_operators, simplices, simplexdict, num_k_simplices_in_p, cur_points, existing_simplex_tree
 
 def is_cycle(char_vector, boundary_operator):
     """
@@ -1590,7 +1596,10 @@ def extract_reps(
         cur_life_times = np.array(cur_df[[0, 1]]) ** exp
         cur_persistence = cur_life_times[:, 1] - cur_life_times[:, 0]
         base_reps = [
-            [ast.literal_eval(data[0]), ast.literal_eval(data[1])]
+            [
+            ast.literal_eval(data[0].replace("Int128, ", "").replace("Int128","").replace("Tuple{}","")),
+            ast.literal_eval(data[1].replace("Int128, ", "").replace("Int128","").replace("Tuple{}",""))
+            ]
             for data in np.array(cur_df[[2, 3]])
         ]
         cur_reps = []
