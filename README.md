@@ -1,6 +1,6 @@
 # Topological Point Features 🪴
 
-This is the python package for topological point features (TOPF), enabling the construction of point-level features in point clouds stemming from algebraic topology and differential geometry as described in [Node-Level Topological Representation Learning on Point Clouds](https://arxiv.org/abs/2406.02300). 🪴
+This is the python package for topological point features (TOPF), enabling the construction of point-level features in point clouds stemming from algebraic topology and differential geometry as described in [Point-Level Topological Representation Learning on Point Clouds](https://arxiv.org/abs/2406.02300), which has been accepted at ICML 2025. 🪴
 
 ![Example of TOPF on three point clouds](https://github.com/vincent-grande/topf/blob/main/examples/teaserfigure.png?raw=True)
 
@@ -18,17 +18,15 @@ Two Jupyter-Notebooks with example usage of TOPF with [basic examples](https://g
 
 ## Citation
 
-TOPF is based on the paper 'Node-Level Topological Representation Learning on Point Clouds', Vincent P. Grande and Michael T. Schaub, 2024.
+TOPF is based on the paper 'Point-Level Topological Representation Learning on Point Clouds', Vincent P. Grande and Michael T. Schaub, Proceedings of the 42nd International Conference on Machine Learning 2025.
 If you find TOPF useful, please consider citing the paper:
 
-    @misc{grande2024topf,
-      title={Node-Level Topological Representation Learning on Point Clouds}, 
-      author={Vincent P. Grande and Michael T. Schaub},
-      year={2024},
-      eprint={2406.02300},
-      archivePrefix={arXiv},
-      primaryClass={math.AT}
-    }
+    @inproceedings{grande2025topf,
+     title={Point-Level Topological Representation Learning on Point Clouds},
+     author={Vincent P Grande and Michael T Schaub},
+     booktitle={International Conference on Machine Learning},
+     year={2025}
+}
 
 ## Dependencies
 
